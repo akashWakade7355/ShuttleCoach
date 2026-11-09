@@ -1,0 +1,206 @@
+
+========== DATABASE SCHEMA INSPECTION ==========
+Database: PostgreSQL
+Version: 17.11
+
+--------------------------------
+TABLE: court_positions
+--------------------------------
+COLUMNS:
+id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+position_code | TYPE: varchar | SIZE: 30 | NULLABLE: 0 | DEFAULT: null
+position_name | TYPE: varchar | SIZE: 50 | NULLABLE: 0 | DEFAULT: null
+display_order | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+
+--------------------------------
+TABLE: position_pair_shot_rules
+--------------------------------
+COLUMNS:
+id | TYPE: int8 | SIZE: 19 | NULLABLE: 0 | DEFAULT: null
+player_position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+opponent_position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+shot_type_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+opponent_position_id -> court_positions.id
+player_position_id -> court_positions.id
+shot_type_id -> shot_types.id
+
+--------------------------------
+TABLE: practice_sessions
+--------------------------------
+COLUMNS:
+id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: gen_random_uuid()
+user_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+status | TYPE: varchar | SIZE: 20 | NULLABLE: 0 | DEFAULT: 'CREATED'::character varying
+recovery_time_seconds | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+planned_repetitions | TYPE: int4 | SIZE: 10 | NULLABLE: 1 | DEFAULT: null
+completed_repetitions | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: 0
+actual_duration_seconds | TYPE: int4 | SIZE: 10 | NULLABLE: 1 | DEFAULT: null
+started_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 1 | DEFAULT: null
+completed_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 1 | DEFAULT: null
+created_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+user_id -> profiles.id
+
+--------------------------------
+TABLE: preset_position_selections
+--------------------------------
+COLUMNS:
+preset_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+court_side | TYPE: varchar | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+preset_id
+court_side
+position_id
+FOREIGN KEYS:
+position_id -> court_positions.id
+preset_id -> saved_presets.id
+
+--------------------------------
+TABLE: preset_shot_selections
+--------------------------------
+COLUMNS:
+preset_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+shot_type_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+preset_id
+shot_type_id
+FOREIGN KEYS:
+preset_id -> saved_presets.id
+shot_type_id -> shot_types.id
+
+--------------------------------
+TABLE: profiles
+--------------------------------
+COLUMNS:
+id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+full_name | TYPE: varchar | SIZE: 100 | NULLABLE: 1 | DEFAULT: null
+avatar_url | TYPE: text | SIZE: 2147483647 | NULLABLE: 1 | DEFAULT: null
+created_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 1 | DEFAULT: now()
+updated_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 1 | DEFAULT: now()
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+id -> users.id
+
+--------------------------------
+TABLE: saved_presets
+--------------------------------
+COLUMNS:
+id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: gen_random_uuid()
+user_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+preset_name | TYPE: varchar | SIZE: 100 | NULLABLE: 0 | DEFAULT: null
+planned_repetitions | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+recovery_time_seconds | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+created_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+updated_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+user_id -> profiles.id
+
+--------------------------------
+TABLE: session_position_selections
+--------------------------------
+COLUMNS:
+session_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+court_side | TYPE: varchar | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+session_id
+court_side
+position_id
+FOREIGN KEYS:
+position_id -> court_positions.id
+session_id -> practice_sessions.id
+
+--------------------------------
+TABLE: session_sequence_steps
+--------------------------------
+COLUMNS:
+id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: gen_random_uuid()
+session_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+sequence_number | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: null
+completed | TYPE: bool | SIZE: 1 | NULLABLE: 0 | DEFAULT: false
+returned_to_center | TYPE: bool | SIZE: 1 | NULLABLE: 0 | DEFAULT: false
+completed_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 1 | DEFAULT: null
+player_position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 1 | DEFAULT: null
+opponent_position_id | TYPE: int2 | SIZE: 5 | NULLABLE: 1 | DEFAULT: null
+shot_type_id | TYPE: int2 | SIZE: 5 | NULLABLE: 1 | DEFAULT: null
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+opponent_position_id -> court_positions.id
+player_position_id -> court_positions.id
+session_id -> practice_sessions.id
+shot_type_id -> shot_types.id
+
+--------------------------------
+TABLE: session_shot_selections
+--------------------------------
+COLUMNS:
+session_id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+shot_type_id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+PRIMARY KEYS:
+session_id
+shot_type_id
+FOREIGN KEYS:
+session_id -> practice_sessions.id
+shot_type_id -> shot_types.id
+
+--------------------------------
+TABLE: shot_types
+--------------------------------
+COLUMNS:
+id | TYPE: int2 | SIZE: 5 | NULLABLE: 0 | DEFAULT: null
+shot_name | TYPE: varchar | SIZE: 50 | NULLABLE: 0 | DEFAULT: null
+description | TYPE: text | SIZE: 2147483647 | NULLABLE: 1 | DEFAULT: null
+is_active | TYPE: bool | SIZE: 1 | NULLABLE: 1 | DEFAULT: true
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+
+--------------------------------
+TABLE: training_categories
+--------------------------------
+COLUMNS:
+id | TYPE: int8 | SIZE: 19 | NULLABLE: 0 | DEFAULT: null
+category_name | TYPE: varchar | SIZE: 100 | NULLABLE: 0 | DEFAULT: null
+description | TYPE: text | SIZE: 2147483647 | NULLABLE: 1 | DEFAULT: null
+display_order | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: 0
+is_active | TYPE: bool | SIZE: 1 | NULLABLE: 0 | DEFAULT: true
+created_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+
+--------------------------------
+TABLE: training_videos
+--------------------------------
+COLUMNS:
+id | TYPE: uuid | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: gen_random_uuid()
+category_id | TYPE: int8 | SIZE: 19 | NULLABLE: 0 | DEFAULT: null
+title | TYPE: varchar | SIZE: 200 | NULLABLE: 0 | DEFAULT: null
+description | TYPE: text | SIZE: 2147483647 | NULLABLE: 1 | DEFAULT: null
+video_url | TYPE: text | SIZE: 2147483647 | NULLABLE: 0 | DEFAULT: null
+thumbnail_url | TYPE: text | SIZE: 2147483647 | NULLABLE: 1 | DEFAULT: null
+duration_seconds | TYPE: int4 | SIZE: 10 | NULLABLE: 1 | DEFAULT: null
+difficulty_level | TYPE: varchar | SIZE: 20 | NULLABLE: 1 | DEFAULT: null
+display_order | TYPE: int4 | SIZE: 10 | NULLABLE: 0 | DEFAULT: 0
+is_published | TYPE: bool | SIZE: 1 | NULLABLE: 0 | DEFAULT: false
+created_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+updated_at | TYPE: timestamptz | SIZE: 35 | NULLABLE: 0 | DEFAULT: now()
+PRIMARY KEYS:
+id
+FOREIGN KEYS:
+category_id -> training_categories.id
+
+========== INSPECTION FINISHED ==========
