@@ -18,4 +18,13 @@ public class PositionPairShotRuleServiceImpl implements PositionPairShotRuleServ
     public List<PositionPairShotRule> getAllPositionPairShotRules() {
         return positionPairShotRuleRepository.findAll();
     }
+
+    @Override
+    public List<PositionPairShotRule> getValidRulesForPositionPairs(
+            List<Short> playerPositionIds,
+            List<Short> opponentPositionIds
+    ) {
+        return positionPairShotRuleRepository
+                .findByPlayerPositionIdInAndOpponentPositionIdIn(playerPositionIds, opponentPositionIds);
+    }
 }
