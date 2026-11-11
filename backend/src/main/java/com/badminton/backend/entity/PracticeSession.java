@@ -26,6 +26,10 @@ public class PracticeSession {
     private OffsetDateTime startedAt;
     @Column(name = "completed_at", nullable = true)
     private OffsetDateTime completedAt;
+    @Column(name = "paused_at", nullable = true)
+    private OffsetDateTime pausedAt;
+    @Column(name = "total_paused_seconds", nullable = false)
+    private Integer totalPausedSeconds = 0;
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
     @ManyToOne(optional = false)
@@ -60,6 +64,12 @@ public class PracticeSession {
 
     public OffsetDateTime getCompletedAt() { return completedAt; }
     public void setCompletedAt(OffsetDateTime completedAt) { this.completedAt = completedAt; }
+
+    public OffsetDateTime getPausedAt() { return pausedAt; }
+    public void setPausedAt(OffsetDateTime pausedAt) { this.pausedAt = pausedAt; }
+
+    public Integer getTotalPausedSeconds() { return totalPausedSeconds; }
+    public void setTotalPausedSeconds(Integer totalPausedSeconds) { this.totalPausedSeconds = totalPausedSeconds; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
