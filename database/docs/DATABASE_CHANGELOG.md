@@ -285,3 +285,23 @@ SELECT has_column_privilege('authenticated', 'public.profiles', 'id', 'UPDATE') 
 - Only justified indexes kept: the migration does not add redundant index changes beyond the user lookup indexes already required
 
 This migration remains proposal-only and ready for manual approval after review; it was not executed.
+
+## 6) Practice timing configuration proposal (added separately)
+
+A separate proposal adds two nullable timing fields to public.practice_sessions:
+- repetition_duration_seconds INTEGER NULL
+- preparation_time_seconds INTEGER NULL
+
+Purpose:
+- repetition_duration_seconds captures the maximum time allowed for one complete repetition: move → shot → return to centre.
+- preparation_time_seconds captures a one-time countdown before the first repetition begins.
+
+Validation rules:
+- repetition_duration_seconds IS NULL OR repetition_duration_seconds > 0
+- preparation_time_seconds IS NULL OR preparation_time_seconds >= 0
+
+Important handling:
+- No default timing values are invented for historical practice sessions.
+- Both columns are added as nullable to preserve existing rows.
+- Existing permissions, RLS, foreign keys, auth logic, and signup flow remain unchanged.
+- The migration scope is intentionally restricted to public.practice_sessions only.

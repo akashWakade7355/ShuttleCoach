@@ -25,6 +25,14 @@ public class CreatePracticeSessionRequest {
     @PositiveOrZero
     private Integer recoveryTimeSeconds;
 
+    @NotNull
+    @Positive
+    private Integer repetitionDurationSeconds;
+
+    @NotNull
+    @PositiveOrZero
+    private Integer preparationTimeSeconds;
+
     public CreatePracticeSessionRequest() {
     }
 
@@ -66,5 +74,21 @@ public class CreatePracticeSessionRequest {
 
     public void setRecoveryTimeSeconds(Integer recoveryTimeSeconds) {
         this.recoveryTimeSeconds = recoveryTimeSeconds;
+    }
+
+    public Integer getRepetitionDurationSeconds() {
+        return repetitionDurationSeconds;
+    }
+
+    public void setRepetitionDurationSeconds(Integer repetitionDurationSeconds) {
+        this.repetitionDurationSeconds = repetitionDurationSeconds;
+    }
+
+    public Integer getPreparationTimeSeconds() {
+        return preparationTimeSeconds;
+    }
+
+    public void setPreparationTimeSeconds(Integer preparationTimeSeconds) {
+        this.preparationTimeSeconds = preparationTimeSeconds;
     }
 }

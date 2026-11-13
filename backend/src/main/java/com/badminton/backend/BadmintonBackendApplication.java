@@ -7,7 +7,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BadmintonBackendApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(BadmintonBackendApplication.class, args);
+		SpringApplication.run(
+				BadmintonBackendApplication.class, args
+		);
 	}
-
 }

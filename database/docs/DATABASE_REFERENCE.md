@@ -75,8 +75,18 @@ Columns:
 - started_at TIMESTAMPTZ NULL; default: none
 - completed_at TIMESTAMPTZ NULL; default: none
 - created_at TIMESTAMPTZ NOT NULL; default: now()
+- repetition_duration_seconds INTEGER NULL; default: none
+  - Proposed practice timing configuration for the maximum allowed duration of a complete repetition (move → shot → return to centre).
+  - Validation rule: NULL or value > 0.
+- preparation_time_seconds INTEGER NULL; default: none
+  - Proposed one-time countdown before the first repetition begins.
+  - Validation rule: NULL or value >= 0; 0 means practice starts immediately with no countdown.
 Foreign keys (verified): user_id -> public.profiles.id.
 Other constraints / FK actions: Not inspected / Unverified.
+
+Additional proposal note:
+- These two timing columns are not part of the original baseline schema inspection and are intentionally added as nullable fields so that historical practice sessions are not given invented timing defaults.
+- The forward migration adds the columns and the relevant CHECK constraints without modifying existing permissions, auth logic, or unrelated tables.
 
 ========================================================
 6. public.session_position_selections
