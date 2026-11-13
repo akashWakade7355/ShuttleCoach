@@ -33,20 +33,43 @@ ALTER TABLE public.practice_sessions
 -- Add CHECK constraints to validate meaningful values only when the fields are set.
 -- Rule 1: repetition_duration_seconds must be NULL or > 0
 -- Rule 2: preparation_time_seconds must be NULL or >= 0
+--
+-- Guarded via DO blocks so rerunning the migration will not fail with duplicate
+-- constraint-name errors.
 -- -----------------------------------------------------------------------------
-ALTER TABLE public.practice_sessions
-  ADD CONSTRAINT practice_sessions_repetition_duration_seconds_check
-  CHECK (
-    repetition_duration_seconds IS NULL
-    OR repetition_duration_seconds > 0
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.practice_sessions'::regclass
+      AND conname = 'practice_sessions_repetition_duration_seconds_check'
+  ) THEN
+    ALTER TABLE public.practice_sessions
+      ADD CONSTRAINT practice_sessions_repetition_duration_seconds_check
+      CHECK (
+        repetition_duration_seconds IS NULL
+        OR repetition_duration_seconds > 0
+      );
+  END IF;
+END $$;
 
-ALTER TABLE public.practice_sessions
-  ADD CONSTRAINT practice_sessions_preparation_time_seconds_check
-  CHECK (
-    preparation_time_seconds IS NULL
-    OR preparation_time_seconds >= 0
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.practice_sessions'::regclass
+      AND conname = 'practice_sessions_preparation_time_seconds_check'
+  ) THEN
+    ALTER TABLE public.practice_sessions
+      ADD CONSTRAINT practice_sessions_preparation_time_seconds_check
+      CHECK (
+        preparation_time_seconds IS NULL
+        OR preparation_time_seconds >= 0
+      );
+  END IF;
+END $$;
 
 COMMIT;
 
