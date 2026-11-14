@@ -1,5 +1,7 @@
 package com.badminton.backend.service;
 
+import com.badminton.backend.dto.request.CreatePracticeSessionRequest;
+import com.badminton.backend.dto.response.PracticeSessionCreatedResponse;
 import com.badminton.backend.entity.PracticeSession;
 import java.util.Optional;
 import java.util.UUID;
@@ -7,10 +9,9 @@ import java.util.UUID;
 public interface PracticeSessionService {
     Optional<PracticeSession> getPracticeSessionById(UUID id);
 
-    PracticeSession createPracticeSession(
+    PracticeSessionCreatedResponse createPracticeSession(
             UUID userId,
-            Integer plannedRepetitions,
-            Integer recoveryTimeSeconds
+            CreatePracticeSessionRequest request
     );
 
     PracticeSession startPracticeSession(UUID id);

@@ -10,6 +10,8 @@ public class PracticeSessionCreatedResponse {
     private Integer plannedRepetitions;
     private Integer completedRepetitions;
     private Integer recoveryTimeSeconds;
+    private Integer repetitionDurationSeconds;
+    private Integer preparationTimeSeconds;
     private List<Short> playerPositionIds;
     private List<Short> opponentPositionIds;
     private List<Short> shotTypeIds;
@@ -33,6 +35,12 @@ public class PracticeSessionCreatedResponse {
 
     public Integer getRecoveryTimeSeconds() { return recoveryTimeSeconds; }
     public void setRecoveryTimeSeconds(Integer recoveryTimeSeconds) { this.recoveryTimeSeconds = recoveryTimeSeconds; }
+
+    public Integer getRepetitionDurationSeconds() { return repetitionDurationSeconds; }
+    public void setRepetitionDurationSeconds(Integer repetitionDurationSeconds) { this.repetitionDurationSeconds = repetitionDurationSeconds; }
+
+    public Integer getPreparationTimeSeconds() { return preparationTimeSeconds; }
+    public void setPreparationTimeSeconds(Integer preparationTimeSeconds) { this.preparationTimeSeconds = preparationTimeSeconds; }
 
     public List<Short> getPlayerPositionIds() { return playerPositionIds; }
     public void setPlayerPositionIds(List<Short> playerPositionIds) { this.playerPositionIds = playerPositionIds; }

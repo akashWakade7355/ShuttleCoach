@@ -16,6 +16,10 @@ public class PracticeSession {
     private String status;
     @Column(name = "recovery_time_seconds", nullable = false)
     private Integer recoveryTimeSeconds;
+    @Column(name = "repetition_duration_seconds")
+    private Integer repetitionDurationSeconds;
+    @Column(name = "preparation_time_seconds")
+    private Integer preparationTimeSeconds;
     @Column(name = "planned_repetitions", nullable = true)
     private Integer plannedRepetitions;
     @Column(name = "completed_repetitions", nullable = false)
@@ -49,6 +53,12 @@ public class PracticeSession {
 
     public Integer getRecoveryTimeSeconds() { return recoveryTimeSeconds; }
     public void setRecoveryTimeSeconds(Integer recoveryTimeSeconds) { this.recoveryTimeSeconds = recoveryTimeSeconds; }
+
+    public Integer getRepetitionDurationSeconds() { return repetitionDurationSeconds; }
+    public void setRepetitionDurationSeconds(Integer repetitionDurationSeconds) { this.repetitionDurationSeconds = repetitionDurationSeconds; }
+
+    public Integer getPreparationTimeSeconds() { return preparationTimeSeconds; }
+    public void setPreparationTimeSeconds(Integer preparationTimeSeconds) { this.preparationTimeSeconds = preparationTimeSeconds; }
 
     public Integer getPlannedRepetitions() { return plannedRepetitions; }
     public void setPlannedRepetitions(Integer plannedRepetitions) { this.plannedRepetitions = plannedRepetitions; }
