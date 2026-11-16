@@ -2,6 +2,10 @@ package com.badminton.backend.service;
 
 import com.badminton.backend.dto.request.CreatePracticeSessionRequest;
 import com.badminton.backend.dto.response.PracticeSessionCreatedResponse;
+import com.badminton.backend.dto.response.PracticeSessionDetailResponse;
+import com.badminton.backend.dto.response.PracticeSessionHistoryItemResponse;
+import com.badminton.backend.dto.response.PracticeSessionProgressResponse;
+import com.badminton.backend.dto.response.SessionSequenceStepResponse;
 import com.badminton.backend.entity.CourtPosition;
 import com.badminton.backend.entity.PracticeSession;
 import com.badminton.backend.entity.PositionPairShotRule;
@@ -18,6 +22,8 @@ import com.badminton.backend.repository.SessionPositionSelectionRepository;
 import com.badminton.backend.repository.SessionSequenceStepRepository;
 import com.badminton.backend.repository.SessionShotSelectionRepository;
 import com.badminton.backend.repository.ShotTypeRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +35,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -65,8 +70,134 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
     }
 
     @Override
-    public Optional<PracticeSession> getPracticeSessionById(UUID id) {
-        return practiceSessionRepository.findById(id);
+    @Transactional(readOnly = true)
+    public PracticeSessionDetailResponse getSessionDetails(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = findOwnedSession(userId, sessionId);
+        return toDetailResponse(practiceSession);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PracticeSessionHistoryItemResponse> getSessionHistory(UUID userId, Pageable pageable) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        if (pageable == null) {
+            throw new IllegalArgumentException("pageable must not be null");
+        }
+
+        return practiceSessionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(this::toHistoryItemResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PracticeSessionProgressResponse getSessionProgress(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = findOwnedSession(userId, sessionId);
+        List<SessionSequenceStep> sequenceSteps = sessionSequenceStepRepository
+                .findBySessionIdOrderBySequenceNumberAsc(sessionId);
+
+        return toProgressResponse(practiceSession, sequenceSteps);
+    }
+
+    @Override
+    @Transactional
+    public PracticeSessionProgressResponse completeCurrentRepetition(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
+        if (!"IN_PROGRESS".equals(practiceSession.getStatus())) {
+            throw new IllegalStateException(
+                    "Only IN_PROGRESS practice sessions can complete a repetition; current status is "
+                            + practiceSession.getStatus()
+            );
+        }
+
+        Integer completedRepetitions = practiceSession.getCompletedRepetitions();
+        Integer plannedRepetitions = practiceSession.getPlannedRepetitions();
+        if (completedRepetitions == null || plannedRepetitions == null) {
+            throw new IllegalStateException("Practice session repetition counts are not initialized");
+        }
+        if (completedRepetitions >= plannedRepetitions) {
+            throw new IllegalStateException("All planned repetitions have already been completed");
+        }
+
+        SessionSequenceStep sequenceStep = sessionSequenceStepRepository
+                .findFirstBySessionIdAndCompletedFalseOrderBySequenceNumberAsc(sessionId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No incomplete sequence repetition is available to complete"));
+
+        sequenceStep.setCompleted(true);
+        sequenceStep.setReturnedToCenter(true);
+        sequenceStep.setCompletedAt(OffsetDateTime.now());
+        sessionSequenceStepRepository.save(sequenceStep);
+
+        practiceSession.setCompletedRepetitions(Math.addExact(completedRepetitions, 1));
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        List<SessionSequenceStep> sequenceSteps = sessionSequenceStepRepository
+                .findBySessionIdOrderBySequenceNumberAsc(sessionId);
+        return toProgressResponse(savedSession, sequenceSteps);
+    }
+
+    private PracticeSessionProgressResponse toProgressResponse(
+            PracticeSession practiceSession,
+            List<SessionSequenceStep> sequenceSteps
+    ) {
+
+        List<SessionSequenceStep> incompleteSteps = sequenceSteps.stream()
+                .filter(step -> !Boolean.TRUE.equals(step.getCompleted()))
+                .toList();
+
+        SessionSequenceStep currentStep = incompleteSteps.isEmpty() ? null : incompleteSteps.getFirst();
+        SessionSequenceStep nextStep = incompleteSteps.size() < 2 ? null : incompleteSteps.get(1);
+        boolean sessionComplete = false;
+
+        if (incompleteSteps.isEmpty()) {
+            boolean sequenceMatchesPlan = practiceSession.getPlannedRepetitions() != null
+                    && sequenceSteps.size() == practiceSession.getPlannedRepetitions();
+            boolean repetitionsMatchPlan = practiceSession.getPlannedRepetitions() != null
+                    && practiceSession.getCompletedRepetitions() != null
+                    && practiceSession.getCompletedRepetitions().equals(practiceSession.getPlannedRepetitions());
+
+            boolean finalRecoveryPending = "IN_PROGRESS".equals(practiceSession.getStatus())
+                    && sequenceMatchesPlan
+                    && repetitionsMatchPlan;
+            if (!sequenceMatchesPlan || !repetitionsMatchPlan
+                    || (!"COMPLETED".equals(practiceSession.getStatus()) && !finalRecoveryPending)) {
+                throw new IllegalStateException(
+                        "Practice session progress is inconsistent: no incomplete sequence steps exist, "
+                                + "but session status, sequence count, or repetition count is not complete"
+                );
+            }
+            sessionComplete = "COMPLETED".equals(practiceSession.getStatus());
+        } else if ("COMPLETED".equals(practiceSession.getStatus())) {
+            throw new IllegalStateException(
+                    "Practice session progress is inconsistent: completed session has incomplete sequence steps"
+            );
+        }
+
+        PracticeSessionProgressResponse response = new PracticeSessionProgressResponse();
+        response.setSessionId(practiceSession.getId());
+        response.setStatus(practiceSession.getStatus());
+        response.setPlannedRepetitions(practiceSession.getPlannedRepetitions());
+        response.setCompletedRepetitions(practiceSession.getCompletedRepetitions());
+        response.setCurrentStep(currentStep == null ? null : toSequenceStepResponse(currentStep));
+        response.setNextStep(nextStep == null ? null : toSequenceStepResponse(nextStep));
+        response.setRecoveryTimeSeconds(practiceSession.getRecoveryTimeSeconds());
+        response.setSessionComplete(sessionComplete);
+        return response;
+    }
+
+    private PracticeSessionHistoryItemResponse toHistoryItemResponse(PracticeSession practiceSession) {
+        PracticeSessionHistoryItemResponse response = new PracticeSessionHistoryItemResponse();
+        response.setId(practiceSession.getId());
+        response.setStatus(practiceSession.getStatus());
+        response.setPlannedRepetitions(practiceSession.getPlannedRepetitions());
+        response.setCompletedRepetitions(practiceSession.getCompletedRepetitions());
+        response.setRecoveryTimeSeconds(practiceSession.getRecoveryTimeSeconds());
+        response.setActualDurationSeconds(practiceSession.getActualDurationSeconds());
+        response.setCreatedAt(practiceSession.getCreatedAt());
+        response.setStartedAt(practiceSession.getStartedAt());
+        response.setCompletedAt(practiceSession.getCompletedAt());
+        return response;
     }
 
     @Override
@@ -273,8 +404,8 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
 
     @Override
     @Transactional
-    public PracticeSession startPracticeSession(UUID id) {
-        PracticeSession practiceSession = getLockedSession(id);
+    public PracticeSessionDetailResponse startPracticeSession(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
 
         if (!"CREATED".equals(practiceSession.getStatus())) {
             throw new IllegalStateException(
@@ -285,24 +416,26 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
 
         practiceSession.setStatus("IN_PROGRESS");
         practiceSession.setStartedAt(OffsetDateTime.now());
-        return practiceSessionRepository.save(practiceSession);
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        return toDetailResponse(savedSession);
     }
 
     @Override
     @Transactional
-    public PracticeSession pauseSession(UUID sessionId) {
-        PracticeSession practiceSession = getLockedSession(sessionId);
+    public PracticeSessionDetailResponse pauseSession(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
         requireStatus(practiceSession, "IN_PROGRESS");
 
         practiceSession.setStatus("PAUSED");
         practiceSession.setPausedAt(OffsetDateTime.now());
-        return practiceSessionRepository.save(practiceSession);
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        return toDetailResponse(savedSession);
     }
 
     @Override
     @Transactional
-    public PracticeSession resumeSession(UUID sessionId) {
-        PracticeSession practiceSession = getLockedSession(sessionId);
+    public PracticeSessionDetailResponse resumeSession(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
         requireStatus(practiceSession, "PAUSED");
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -314,13 +447,14 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
         addPausedSeconds(practiceSession, pausedAt, now);
         practiceSession.setPausedAt(null);
         practiceSession.setStatus("IN_PROGRESS");
-        return practiceSessionRepository.save(practiceSession);
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        return toDetailResponse(savedSession);
     }
 
     @Override
     @Transactional
-    public PracticeSession completeSession(UUID sessionId) {
-        PracticeSession practiceSession = getLockedSession(sessionId);
+    public PracticeSessionDetailResponse completeSession(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
         String status = practiceSession.getStatus();
         if (!"IN_PROGRESS".equals(status) && !"PAUSED".equals(status)) {
             throw new IllegalStateException(
@@ -352,15 +486,127 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
         practiceSession.setCompletedAt(completedAt);
         practiceSession.setActualDurationSeconds(Math.toIntExact(activeSeconds));
         practiceSession.setStatus("COMPLETED");
-        return practiceSessionRepository.save(practiceSession);
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        return toDetailResponse(savedSession);
     }
 
-    private PracticeSession getLockedSession(UUID id) {
-        if (id == null) {
+    @Override
+    @Transactional
+    public PracticeSessionDetailResponse abandonSession(UUID userId, UUID sessionId) {
+        PracticeSession practiceSession = getLockedSession(userId, sessionId);
+        String status = practiceSession.getStatus();
+        if (!"CREATED".equals(status) && !"IN_PROGRESS".equals(status) && !"PAUSED".equals(status)) {
+            throw new IllegalStateException(
+                    "Only CREATED, IN_PROGRESS, or PAUSED practice sessions can be abandoned; current status is "
+                            + status
+            );
+        }
+
+        OffsetDateTime abandonedAt = OffsetDateTime.now();
+        if ("PAUSED".equals(status)) {
+            OffsetDateTime pausedAt = practiceSession.getPausedAt();
+            if (pausedAt == null) {
+                throw new IllegalStateException("Paused session has no pausedAt timestamp");
+            }
+            addPausedSeconds(practiceSession, pausedAt, abandonedAt);
+            practiceSession.setPausedAt(null);
+        }
+
+        OffsetDateTime startedAt = practiceSession.getStartedAt();
+        if (startedAt != null) {
+            long elapsedSeconds = Math.max(0L, Duration.between(startedAt, abandonedAt).getSeconds());
+            int pausedSeconds = practiceSession.getTotalPausedSeconds() == null
+                    ? 0
+                    : practiceSession.getTotalPausedSeconds();
+            practiceSession.setActualDurationSeconds(Math.toIntExact(Math.max(0L, elapsedSeconds - pausedSeconds)));
+        }
+
+        practiceSession.setStatus("ABANDONED");
+        PracticeSession savedSession = practiceSessionRepository.save(practiceSession);
+        return toDetailResponse(savedSession);
+    }
+
+    private PracticeSession findOwnedSession(UUID userId, UUID sessionId) {
+        validateOwnershipIds(userId, sessionId);
+        return practiceSessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new java.util.NoSuchElementException(
+                        "Practice session not found for the specified user"));
+    }
+
+    private PracticeSession getLockedSession(UUID userId, UUID sessionId) {
+        validateOwnershipIds(userId, sessionId);
+        return practiceSessionRepository.findByIdAndUserIdForUpdate(sessionId, userId)
+                .orElseThrow(() -> new java.util.NoSuchElementException(
+                        "Practice session not found for the specified user"));
+    }
+
+    private void validateOwnershipIds(UUID userId, UUID sessionId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        if (sessionId == null) {
             throw new IllegalArgumentException("sessionId must not be null");
         }
-        return practiceSessionRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Practice session not found: " + id));
+    }
+
+    private PracticeSessionDetailResponse toDetailResponse(PracticeSession practiceSession) {
+        List<Short> playerPositionIds = new ArrayList<>();
+        List<Short> opponentPositionIds = new ArrayList<>();
+        for (SessionPositionSelection selection :
+                sessionPositionSelectionRepository.findById_SessionId(practiceSession.getId())) {
+            if ("PLAYER".equals(selection.getId().getCourtSide())) {
+                playerPositionIds.add(selection.getId().getPositionId());
+            } else if ("OPPONENT".equals(selection.getId().getCourtSide())) {
+                opponentPositionIds.add(selection.getId().getPositionId());
+            }
+        }
+
+        List<Short> shotTypeIds = sessionShotSelectionRepository
+                .findById_SessionId(practiceSession.getId()).stream()
+                .map(selection -> selection.getId().getShotTypeId())
+                .toList();
+
+        List<SessionSequenceStepResponse> sequenceSteps = sessionSequenceStepRepository
+                .findBySessionIdOrderBySequenceNumberAsc(practiceSession.getId()).stream()
+                .map(this::toSequenceStepResponse)
+                .toList();
+
+        PracticeSessionDetailResponse response = new PracticeSessionDetailResponse();
+        response.setId(practiceSession.getId());
+        response.setStatus(practiceSession.getStatus());
+        response.setPlannedRepetitions(practiceSession.getPlannedRepetitions());
+        response.setCompletedRepetitions(practiceSession.getCompletedRepetitions());
+        response.setRecoveryTimeSeconds(practiceSession.getRecoveryTimeSeconds());
+        response.setRepetitionDurationSeconds(
+                practiceSession.getRepetitionDurationSeconds()
+        );
+        response.setPreparationTimeSeconds(
+                practiceSession.getPreparationTimeSeconds()
+        );
+        response.setActualDurationSeconds(practiceSession.getActualDurationSeconds());
+        response.setTotalPausedSeconds(practiceSession.getTotalPausedSeconds());
+        response.setCreatedAt(practiceSession.getCreatedAt());
+        response.setStartedAt(practiceSession.getStartedAt());
+        response.setPausedAt(practiceSession.getPausedAt());
+        response.setCompletedAt(practiceSession.getCompletedAt());
+        response.setPlayerPositionIds(playerPositionIds);
+        response.setOpponentPositionIds(opponentPositionIds);
+        response.setShotTypeIds(shotTypeIds);
+        response.setSequenceSteps(sequenceSteps);
+        return response;
+    }
+
+    private SessionSequenceStepResponse toSequenceStepResponse(SessionSequenceStep step) {
+        SessionSequenceStepResponse response = new SessionSequenceStepResponse();
+        response.setId(step.getId());
+        response.setSequenceNumber(step.getSequenceNumber());
+        response.setPlayerPositionId(step.getPlayerPositionId());
+        response.setOpponentPositionId(step.getOpponentPositionId());
+        response.setShotTypeId(step.getShotTypeId());
+        response.setCompleted(step.getCompleted());
+        response.setReturnedToCenter(step.getReturnedToCenter());
+        response.setCompletedAt(step.getCompletedAt());
+        return response;
     }
 
     private void requireStatus(PracticeSession practiceSession, String expectedStatus) {
