@@ -247,10 +247,10 @@ public class PracticeSessionServiceImpl implements PracticeSessionService {
         requireAllIdsExist(opponentPositionIds, courtPositionsById.keySet(), "opponent position");
 
         Map<Short, ShotType> shotTypesById = new LinkedHashMap<>();
-        for (ShotType shotType : shotTypeRepository.findAllById(shotTypeIds)) {
+        for (ShotType shotType : shotTypeRepository.findByIdInAndActiveTrue(shotTypeIds)) {
             shotTypesById.put(shotType.getId(), shotType);
         }
-        requireAllIdsExist(shotTypeIds, shotTypesById.keySet(), "shot type");
+        requireAllIdsExist(shotTypeIds, shotTypesById.keySet(), "active shot type");
 
         Set<Short> selectedPlayerPositionIds = new LinkedHashSet<>(playerPositionIds);
         Set<Short> selectedOpponentPositionIds = new LinkedHashSet<>(opponentPositionIds);

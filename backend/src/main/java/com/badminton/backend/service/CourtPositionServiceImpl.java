@@ -16,6 +16,6 @@ public class CourtPositionServiceImpl implements CourtPositionService {
 
     @Override
     public List<CourtPosition> getAllPositions() {
-        return courtPositionRepository.findAll();
+        return courtPositionRepository.findAllByOrderByDisplayOrderAsc();
     }
 }

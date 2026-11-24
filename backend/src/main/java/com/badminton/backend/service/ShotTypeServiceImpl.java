@@ -16,6 +16,6 @@ public class ShotTypeServiceImpl implements ShotTypeService {
 
     @Override
     public List<ShotType> getAllShotTypes() {
-        return shotTypeRepository.findAll();
+        return shotTypeRepository.findByActiveTrue();
     }
 }
